@@ -276,6 +276,8 @@ public partial class MainForm : DarkForm
         // The builder selector is the next job's default; keep it in step with the saved preference.
         if (cboImageBackend.Items.Count > 0)
             cboImageBackend.SelectedIndex = IndexOfBackend(_settings.BuildBackend);
+        if (cboImageExtractEngine.Items.Count > 0)
+            cboImageExtractEngine.SelectedIndex = IndexOfExtractBackend(_settings.ExtractBackend);
 
         SetFilePreviewPaneVisible(_settings.ShowFilePreview);
     }
