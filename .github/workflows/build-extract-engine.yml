@@ -1,0 +1,58 @@
+name: Build extract-engine Windows x64
+
+on:
+  push:
+    branches:
+      - extract-engine-build
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout PS5PKGTool
+        uses: actions/checkout@v4
+
+      - name: Checkout DarkUI dependency
+        shell: pwsh
+        run: |
+          git clone https://github.com/pearlxcore/DarkUI.git ..\DarkUI
+          git -C ..\DarkUI checkout 43d417c6ff9dc3d7a87f7b78b711a2a03cc91339
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore PS5PKGTool.slnx
+
+      - name: Publish Windows x64 self-contained
+        shell: pwsh
+        run: |
+          dotnet publish PS5PKGTool/PS5PKGTool.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            --output publish `
+            -p:PublishSingleFile=false `
+            -p:DebugType=None `
+            -p:DebugSymbols=false
+
+      - name: Show publish output
+        shell: pwsh
+        run: Get-ChildItem -Recurse publish | Select-Object FullName,Length
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PS5PKGTool-extract-engine-win-x64
+          path: publish/**
+          if-no-files-found: error
+          retention-days: 30
