@@ -533,6 +533,8 @@ public partial class MainForm
                 : $"{progress.CurrentItem:N0} items");
         if (progress.TotalBytes > 0)
             parts.Add($"{FormatBytes(progress.CurrentBytes)}/{FormatBytes(progress.TotalBytes)}");
+        else if (progress.CurrentBytes > 0)
+            parts.Add($"{FormatBytes(progress.CurrentBytes)} written");
         return parts.Count > 0 ? " (" + string.Join(", ", parts) + ")" : string.Empty;
     }
 
@@ -837,7 +839,9 @@ public partial class MainForm
 
     private static IProgress<SonyPackageExtractProgress> AdaptSonyExtractProgress(IProgress<PackageTaskProgress> target) =>
         new Progress<SonyPackageExtractProgress>(value => target.Report(new PackageTaskProgress(
-            "Extracting", 0, 0, value.CompletedBytes, value.TotalBytes, 0, 0, value.CurrentPath)));
+            string.IsNullOrWhiteSpace(value.Stage) ? "Extracting" : value.Stage,
+            0, 0, value.CompletedBytes, value.TotalBytes, value.CurrentItem, value.TotalItems,
+            value.CurrentPath, value.StagePercent)));
 
     // ---------------------------------------------------------------- persistence / resume
 
@@ -918,7 +922,10 @@ public partial class MainForm
             : PackageTaskPlans.ConvertImage,
         PackageTaskTypes.ImageBuildPackage => PackageTaskPlans.BuildPackageFor(Get(fields, "source")),
         PackageTaskTypes.ImageVerify => PackageTaskPlans.Verify,
-        PackageTaskTypes.PackageExtract => PackageTaskPlans.Extract,
+        PackageTaskTypes.PackageExtract => string.Equals(Get(fields, "backend"), LppBackend.BackendId,
+            StringComparison.OrdinalIgnoreCase)
+                ? PackageTaskPlans.ExtractLibProspero
+                : PackageTaskPlans.Extract,
         PackageTaskTypes.PackageVerify => PackageTaskPlans.Verify,
         PackageTaskTypes.ExfatAmpr => PackageTaskPlans.Ampr,
         PackageTaskTypes.SonyDebugPkg => PackageTaskPlans.Build,

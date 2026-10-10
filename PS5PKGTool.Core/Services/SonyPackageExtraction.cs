@@ -5,7 +5,14 @@ using ProsperoPkgTool.Containers;
 
 namespace PS5PKGTool.Core.Services;
 
-public readonly record struct SonyPackageExtractProgress(long CompletedBytes, long TotalBytes, string CurrentPath);
+public readonly record struct SonyPackageExtractProgress(
+    long CompletedBytes,
+    long TotalBytes,
+    string CurrentPath,
+    string Stage = "Extracting",
+    double StagePercent = -1,
+    int CurrentItem = 0,
+    int TotalItems = 0);
 public sealed class SonyPackageExtractResult
 {
     public required string Destination { get; init; }

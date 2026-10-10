@@ -73,6 +73,14 @@ public static class PackageTaskPlans
 {
     public static readonly PackageTaskStage[] Single = [];
     public static readonly PackageTaskStage[] Extract = [new("Extract")];
+
+    /// <summary>Three observable phases used by LibProsperoPkg package extraction.</summary>
+    public static readonly PackageTaskStage[] ExtractLibProspero =
+    [
+        new("Decrypt package", "decrypt package", "decrypt outer"),
+        new("Decode inner image", "decode inner image", "unpack game image", "naps"),
+        new("Write game files", "write game files", "write files")
+    ];
     public static readonly PackageTaskStage[] Verify = [new("Verify")];
     public static readonly PackageTaskStage[] Build = [new("Build")];
 
