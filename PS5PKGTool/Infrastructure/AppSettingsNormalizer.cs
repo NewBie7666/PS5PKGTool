@@ -58,6 +58,7 @@ public static class AppSettingsNormalizer
             settings.DebugPasscode = string.Empty;
 
         settings.BuildBackend = (settings.BuildBackend ?? string.Empty).Trim();
+        settings.ExtractBackend = (settings.ExtractBackend ?? string.Empty).Trim();
 
         settings.WindowWidth = ClampNonNegative(settings.WindowWidth);
         settings.WindowHeight = ClampNonNegative(settings.WindowHeight);

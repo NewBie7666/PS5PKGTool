@@ -354,6 +354,8 @@ partial class MainForm
     private DarkUI.Controls.DarkNumericUpDown nudImageMinFree = null!;
     private DarkUI.Controls.DarkLabel lblImagePasscode = null!;
     private DarkUI.Controls.DarkTextBox txtImagePasscode = null!;
+    private DarkUI.Controls.DarkLabel lblImageExtractEngine = null!;
+    private DarkUI.Controls.DarkComboBox cboImageExtractEngine = null!;
     private DarkUI.Controls.DarkLabel lblImageSdk = null!;
     private DarkUI.Controls.DarkComboBox cboImageSdk = null!;
     private DarkUI.Controls.DarkLabel lblImagePkgType = null!;
@@ -704,6 +706,8 @@ partial class MainForm
         chkImageOverwrite = new DarkUI.Controls.DarkCheckBox();
         lblImagePasscode = new DarkUI.Controls.DarkLabel();
         txtImagePasscode = new DarkUI.Controls.DarkTextBox();
+        lblImageExtractEngine = new DarkUI.Controls.DarkLabel();
+        cboImageExtractEngine = new DarkUI.Controls.DarkComboBox();
         toolsFooter = new DarkUI.Controls.DarkFooterBar();
         lblImageStatus = new DarkUI.Controls.DarkLabel();
         btnImageRun = new DarkUI.Controls.DarkButton();
@@ -4116,6 +4120,8 @@ partial class MainForm
         tabTargetOptions.Controls.Add(chkImageOverwrite);
         tabTargetOptions.Controls.Add(lblImagePasscode);
         tabTargetOptions.Controls.Add(txtImagePasscode);
+        tabTargetOptions.Controls.Add(lblImageExtractEngine);
+        tabTargetOptions.Controls.Add(cboImageExtractEngine);
         tabTargetOptions.Location = new Point(4, 32);
         tabTargetOptions.Name = "tabTargetOptions";
         tabTargetOptions.Size = new Size(1342, 152);
@@ -4177,6 +4183,25 @@ partial class MainForm
         txtImagePasscode.Size = new Size(300, 23);
         txtImagePasscode.TabIndex = 35;
         txtImagePasscode.Visible = false;
+        //
+        // lblImageExtractEngine
+        //
+        lblImageExtractEngine.Location = new Point(12, 76);
+        lblImageExtractEngine.Name = "lblImageExtractEngine";
+        lblImageExtractEngine.Size = new Size(100, 15);
+        lblImageExtractEngine.TabIndex = 36;
+        lblImageExtractEngine.Text = "Engine:";
+        lblImageExtractEngine.TextAlign = ContentAlignment.MiddleRight;
+        lblImageExtractEngine.Visible = false;
+        //
+        // cboImageExtractEngine
+        //
+        cboImageExtractEngine.Location = new Point(120, 72);
+        cboImageExtractEngine.Name = "cboImageExtractEngine";
+        cboImageExtractEngine.Size = new Size(300, 24);
+        cboImageExtractEngine.TabIndex = 37;
+        cboImageExtractEngine.Visible = false;
+        cboImageExtractEngine.SelectedIndexChanged += cboImageExtractEngine_SelectedIndexChanged;
         // 
         // toolsFooter
         // 

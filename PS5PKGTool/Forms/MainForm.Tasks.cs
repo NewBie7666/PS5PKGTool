@@ -1149,8 +1149,8 @@ public partial class MainForm
         if (source.Length == 0 || output.Length == 0) return null;
         return kind switch
         {
-            "sony" => (progress, token) => SonyPackageExtraction.ExtractAsync(source, output, passcode,
-                AdaptSonyExtractProgress(progress), token),
+            "sony" => (progress, token) => ExtractBackend(Get(fields, "backend")).ExtractAsync(source, output,
+                passcode, AdaptSonyExtractProgress(progress), token),
             "ffpfsc" => (progress, token) => FfpfscImage.ExtractAsync(source, output,
                 AdaptFfpfscProgress(progress), token),
             "ffpkg" => (progress, token) => Ufs2Operations.ExtractAsync(source, output,

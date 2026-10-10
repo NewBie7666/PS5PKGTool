@@ -342,6 +342,8 @@ public partial class MainForm
         chkImageOverwrite.Visible = extract;
         lblImagePasscode.Visible = showPasscode;
         txtImagePasscode.Visible = showPasscode;
+        lblImageExtractEngine.Visible = _imageSourceIsPackage && extract;
+        cboImageExtractEngine.Visible = _imageSourceIsPackage && extract;
         lblImageOutput.Text = extract ? "Output folder:" : "Output file:";
 
         if (convert)
@@ -728,18 +730,20 @@ public partial class MainForm
         }
         if (Directory.Exists(output)) output = FindAvailableDirectory(output);
         string passcode = ImagePasscode();
+        IPackageBackend engine = SelectedExtractBackend();
         SonyPackageExtractResult? outcome = null;
         lblImageStatus.Text = "Queued: package extraction. See the Tasks tab.";
         EnqueueTask(PackageTaskTypes.PackageExtract, $"Extract {Path.GetFileName(source)}",
             async (progress, token) =>
             {
-                outcome = await SonyPackageExtraction.ExtractAsync(source, output, passcode,
+                outcome = await engine.ExtractAsync(source, output, passcode,
                     AdaptSonyExtractProgress(progress), token).ConfigureAwait(false);
             },
             sourcePath: source, outputPath: output,
             operation: "Extract package", sourceFormat: "FPKG", targetFormat: "folder",
             stagePlan: PackageTaskPlans.Extract,
-            payload: Payload(("source", source), ("output", output), ("kind", "sony"), ("passcode", passcode)),
+            payload: Payload(("source", source), ("output", output), ("kind", "sony"), ("passcode", passcode),
+                ("backend", engine.Id)),
             onFinished: task => lblImageStatus.Text = task.Status == PackageTaskStatus.Completed && outcome is not null
                 ? $"Extracted {outcome.FileCount:N0} file(s) to {output}."
                 : $"Extraction {StatusText(task.Status).ToLowerInvariant()}.");
@@ -907,6 +911,10 @@ public partial class MainForm
             cboImageBackend.Items.Add(backend.DisplayName);
         cboImageBackend.SelectedIndex = IndexOfBackend(_settings.BuildBackend);
 
+        foreach (IPackageBackend backend in ExtractBackends)
+            cboImageExtractEngine.Items.Add(backend.DisplayName);
+        cboImageExtractEngine.SelectedIndex = IndexOfExtractBackend(_settings.ExtractBackend);
+
         cboImageDrm.Items.Clear();
         cboImageDrm.Items.AddRange(DrmTypeNames);
         cboImageDrm.SelectedIndex = 0; // Upgradable
@@ -942,6 +950,36 @@ public partial class MainForm
         int index = cboImageBackend.SelectedIndex;
         return index >= 0 && index < all.Count ? all[index] : BackendRegistry.Default;
     }
+
+    /// <summary>Backends that can extract a package, in Engine selector order.</summary>
+    private static IReadOnlyList<IPackageBackend> ExtractBackends { get; } =
+        BackendRegistry.All.Where(backend => backend.Capabilities.Extract).ToArray();
+
+    /// <summary>
+    /// Resolves an extraction engine id. Unlike the builder, extraction defaults to ProsperoPkgTool:
+    /// it streams progress and stages output, and it is what tasks queued before the selector used.
+    /// </summary>
+    private static IPackageBackend ExtractBackend(string? id) =>
+        ExtractBackends.FirstOrDefault(backend => string.Equals(backend.Id, id, StringComparison.OrdinalIgnoreCase))
+        ?? BackendRegistry.Get(BackendRegistry.PptId);
+
+    private static int IndexOfExtractBackend(string? id)
+    {
+        IPackageBackend backend = ExtractBackend(id);
+        for (var i = 0; i < ExtractBackends.Count; i++)
+            if (ExtractBackends[i] == backend) return i;
+        return 0;
+    }
+
+    /// <summary>The engine chosen in the extraction Engine selector (defaults to ProsperoPkgTool).</summary>
+    private IPackageBackend SelectedExtractBackend()
+    {
+        int index = cboImageExtractEngine.SelectedIndex;
+        return index >= 0 && index < ExtractBackends.Count ? ExtractBackends[index] : ExtractBackend(null);
+    }
+
+    private void cboImageExtractEngine_SelectedIndexChanged(object? sender, EventArgs e) =>
+        _settings.ExtractBackend = SelectedExtractBackend().Id;
 
     private void cboImageBackend_SelectedIndexChanged(object? sender, EventArgs e)
     {

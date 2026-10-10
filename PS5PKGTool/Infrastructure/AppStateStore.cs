@@ -74,6 +74,9 @@ public sealed class AppSettings
     /// <summary>Selected package backend id ("lpp" or "ppt"). Empty/unknown falls back to the default.</summary>
     public string BuildBackend { get; set; } = string.Empty;
 
+    /// <summary>Package extraction engine id ("ppt" or "lpp"). Empty/unknown falls back to ProsperoPkgTool.</summary>
+    public string ExtractBackend { get; set; } = string.Empty;
+
     // Safety
     public bool ConfirmDelete { get; set; } = true;
     public bool ConfirmMove { get; set; } = true;
