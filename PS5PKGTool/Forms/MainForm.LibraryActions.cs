@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using DarkUI.Forms;
+using PS5PKGTool.Core.Backends;
 using PS5PKGTool.Core.Builders;
 using PS5PKGTool.Core.Models;
 using PS5PKGTool.Core.Services;
@@ -219,18 +220,20 @@ public partial class MainForm
         string passcode = string.IsNullOrEmpty(_settings.DebugPasscode)
             ? SonyDebugPackageCredentials.DefaultPasscode
             : _settings.DebugPasscode;
+        IPackageBackend engine = ExtractBackend(_settings.ExtractBackend);
 
         SonyPackageExtractResult? outcome = null;
         EnqueueTask(PackageTaskTypes.PackageExtract, $"Extract {Path.GetFileName(source)}",
             async (progress, token) =>
             {
-                outcome = await SonyPackageExtraction.ExtractAsync(source, destination, passcode,
+                outcome = await engine.ExtractAsync(source, destination, passcode,
                     AdaptSonyExtractProgress(progress), token).ConfigureAwait(false);
             },
             sourcePath: source, outputPath: destination,
             operation: "Extract package", sourceFormat: "FPKG", targetFormat: "folder",
             stagePlan: PackageTaskPlans.Extract,
-            payload: Payload(("source", source), ("output", destination), ("kind", "sony"), ("passcode", passcode)),
+            payload: Payload(("source", source), ("output", destination), ("kind", "sony"), ("passcode", passcode),
+                ("backend", engine.Id)),
             onFinished: task =>
             {
                 if (task.Status == PackageTaskStatus.Completed && outcome is not null)
