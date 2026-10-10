@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - extract-engine-build
+      - main
   workflow_dispatch:
 
 permissions:
