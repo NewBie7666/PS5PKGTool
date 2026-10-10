@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout PS5PKGTool
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Checkout DarkUI dependency
         shell: pwsh
@@ -26,7 +26,7 @@ jobs:
           git -C ..\DarkUI checkout 43d417c6ff9dc3d7a87f7b78b711a2a03cc91339
 
       - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: 10.0.x
 
@@ -51,7 +51,7 @@ jobs:
         run: Get-ChildItem -Recurse publish | Select-Object FullName,Length
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: PS5PKGTool-extract-engine-win-x64
           path: publish/**
