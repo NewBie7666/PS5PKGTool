@@ -231,7 +231,9 @@ public partial class MainForm
             },
             sourcePath: source, outputPath: destination,
             operation: "Extract package", sourceFormat: "FPKG", targetFormat: "folder",
-            stagePlan: PackageTaskPlans.Extract,
+            stagePlan: engine.Id == LppBackend.BackendId
+                ? PackageTaskPlans.ExtractLibProspero
+                : PackageTaskPlans.Extract,
             payload: Payload(("source", source), ("output", destination), ("kind", "sony"), ("passcode", passcode),
                 ("backend", engine.Id)),
             onFinished: task =>
