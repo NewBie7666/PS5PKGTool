@@ -5,6 +5,7 @@ on:
     branches:
       - extract-engine-build
       - main
+      - feature/lpp-extract-progress
   workflow_dispatch:
 
 permissions:
