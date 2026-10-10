@@ -741,7 +741,9 @@ public partial class MainForm
             },
             sourcePath: source, outputPath: output,
             operation: "Extract package", sourceFormat: "FPKG", targetFormat: "folder",
-            stagePlan: PackageTaskPlans.Extract,
+            stagePlan: engine.Id == LppBackend.BackendId
+                ? PackageTaskPlans.ExtractLibProspero
+                : PackageTaskPlans.Extract,
             payload: Payload(("source", source), ("output", output), ("kind", "sony"), ("passcode", passcode),
                 ("backend", engine.Id)),
             onFinished: task => lblImageStatus.Text = task.Status == PackageTaskStatus.Completed && outcome is not null
