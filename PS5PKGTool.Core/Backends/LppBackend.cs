@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using PS5PKGTool.Core.Builders;
+using PS5PKGTool.Core.Parsers;
 using PS5PKGTool.Core.Services;
 using ProsperoPkgTool.Containers;
 
@@ -58,20 +59,201 @@ public sealed class LppBackend : IPackageBackend
         };
     }
 
-    public Task<SonyPackageExtractResult> ExtractAsync(string packagePath, string destination,
+    public async Task<SonyPackageExtractResult> ExtractAsync(string packagePath, string destination,
         string passcode = SonyDebugPackageCredentials.DefaultPasscode,
-        IProgress<SonyPackageExtractProgress>? progress = null, CancellationToken cancellationToken = default) =>
-        Task.Run(() =>
+        IProgress<SonyPackageExtractProgress>? progress = null, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        string output = Path.GetFullPath(destination);
+        Directory.CreateDirectory(output);
+        long packageBytes = File.Exists(packagePath) ? new FileInfo(packagePath).Length : 0;
+        long estimatedInnerBytes = TryEstimateInnerBytes(packagePath, passcode);
+
+        progress?.Report(new SonyPackageExtractProgress(
+            0, packageBytes, string.Empty, "Decrypt package", 0d));
+
+        Task<int> extraction = Task.Run(() => LibProsperoPkg12.Extract(packagePath, output, passcode),
+            CancellationToken.None);
+        using var monitorCts = new CancellationTokenSource();
+        Task monitor = MonitorExtractionAsync(output, packageBytes, estimatedInnerBytes, progress, extraction,
+            monitorCts.Token);
+
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            int files = LibProsperoPkg12.Extract(packagePath, destination, passcode);
+            int files = await extraction.ConfigureAwait(false);
+            (long extractedBytes, int extractedFiles, string lastFile) = MeasureExtractedTree(output);
+            progress?.Report(new SonyPackageExtractProgress(
+                extractedBytes, extractedBytes, lastFile, "Write game files", 1d,
+                extractedFiles, Math.Max(files, extractedFiles)));
+
             return new SonyPackageExtractResult
             {
-                Destination = Path.GetFullPath(destination),
+                Destination = output,
                 FileCount = files,
-                ExtractedBytes = 0,
+                ExtractedBytes = extractedBytes,
             };
-        }, cancellationToken);
+        }
+        finally
+        {
+            monitorCts.Cancel();
+            try { await monitor.ConfigureAwait(false); }
+            catch (OperationCanceledException) { }
+        }
+    }
+
+    private static async Task MonitorExtractionAsync(string output, long packageBytes, long estimatedInnerBytes,
+        IProgress<SonyPackageExtractProgress>? progress, Task extraction, CancellationToken cancellationToken)
+    {
+        if (progress is null)
+            return;
+
+        string lastStage = string.Empty;
+        long lastBytes = -1;
+        int lastItems = -1;
+
+        while (!extraction.IsCompleted)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            ExtractionTemps temps = FindExtractionTemps(output);
+            string stage;
+            long current;
+            long total;
+            int currentItems = 0;
+            string currentPath = string.Empty;
+            double stagePercent = -1d;
+
+            if (temps.DecodingInner is not null)
+            {
+                stage = "Decode inner image";
+                current = SafeLength(temps.DecodingInner);
+                total = estimatedInnerBytes;
+                currentPath = Path.GetFileName(temps.DecodingInner);
+                if (total > 0)
+                    stagePercent = Math.Clamp((double)current / total, 0d, 0.995d);
+            }
+            else if (temps.InnerImage is not null)
+            {
+                stage = "Write game files";
+                long innerBytes = SafeLength(temps.InnerImage);
+                (current, currentItems, currentPath) = MeasureExtractedTree(output);
+                total = innerBytes > 0 ? innerBytes : estimatedInnerBytes;
+                if (total > 0)
+                    stagePercent = Math.Clamp((double)current / total, 0d, 0.995d);
+            }
+            else
+            {
+                stage = "Decrypt package";
+                current = temps.OuterImage is null ? 0 : SafeLength(temps.OuterImage);
+                total = packageBytes;
+                currentPath = temps.OuterImage is null ? string.Empty : Path.GetFileName(temps.OuterImage);
+                if (total > 0)
+                    stagePercent = Math.Clamp((double)current / total, 0d, 0.995d);
+            }
+
+            if (!string.Equals(stage, lastStage, StringComparison.Ordinal) ||
+                current != lastBytes || currentItems != lastItems)
+            {
+                progress.Report(new SonyPackageExtractProgress(
+                    current, total, currentPath, stage, stagePercent, currentItems, 0));
+                lastStage = stage;
+                lastBytes = current;
+                lastItems = currentItems;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(750), cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static long TryEstimateInnerBytes(string packagePath, string passcode)
+    {
+        try
+        {
+            var pfs = new SonyPkgReader().Read(packagePath, passcode).NestedPfs;
+            if (pfs is null || pfs.BlockSize == 0 || pfs.DataBlockCount <= 0)
+                return 0;
+            return checked((long)pfs.BlockSize * pfs.DataBlockCount);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or OverflowException or
+                                   UnauthorizedAccessException or ArgumentException)
+        {
+            return 0;
+        }
+    }
+
+    private readonly record struct ExtractionTemps(string? OuterImage, string? DecodingInner, string? InnerImage);
+
+    private static ExtractionTemps FindExtractionTemps(string output)
+    {
+        string? outer = null;
+        string? decoding = null;
+        string? inner = null;
+        try
+        {
+            foreach (string path in Directory.EnumerateFiles(output, ".*", SearchOption.TopDirectoryOnly))
+            {
+                string name = Path.GetFileName(path);
+                if (name.StartsWith("..libprospero-inner-", StringComparison.OrdinalIgnoreCase))
+                    decoding = path;
+                else if (name.StartsWith(".libprospero-inner-", StringComparison.OrdinalIgnoreCase))
+                    inner = path;
+                else if (name.StartsWith(".libprospero-outer-", StringComparison.OrdinalIgnoreCase))
+                    outer = path;
+            }
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+
+        return new ExtractionTemps(outer, decoding, inner);
+    }
+
+    private static long SafeLength(string path)
+    {
+        try { return new FileInfo(path).Length; }
+        catch (IOException) { return 0; }
+        catch (UnauthorizedAccessException) { return 0; }
+    }
+
+    private static (long Bytes, int Files, string CurrentPath) MeasureExtractedTree(string output)
+    {
+        long bytes = 0;
+        int files = 0;
+        string currentPath = string.Empty;
+        DateTime currentWrite = DateTime.MinValue;
+
+        try
+        {
+            foreach (string path in Directory.EnumerateFiles(output, "*", SearchOption.AllDirectories))
+            {
+                string relative = Path.GetRelativePath(output, path);
+                if (!relative.Contains(Path.DirectorySeparatorChar) &&
+                    Path.GetFileName(path).StartsWith(".libprospero-", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (!relative.Contains(Path.DirectorySeparatorChar) &&
+                    Path.GetFileName(path).StartsWith("..libprospero-inner-", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                try
+                {
+                    var info = new FileInfo(path);
+                    bytes += info.Length;
+                    files++;
+                    if (info.LastWriteTimeUtc > currentWrite)
+                    {
+                        currentWrite = info.LastWriteTimeUtc;
+                        currentPath = relative;
+                    }
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+
+        return (bytes, files, currentPath);
+    }
 
     private static SonyDebugPackageBuildResult BuildFromDirectory(string sourceDirectory, string outputPath,
         SonyDebugPackageBuildOptions options, IProgress<SonyDebugPackageProgress>? progress,
