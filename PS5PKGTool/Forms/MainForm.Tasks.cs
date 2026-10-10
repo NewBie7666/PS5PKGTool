@@ -533,6 +533,8 @@ public partial class MainForm
                 : $"{progress.CurrentItem:N0} items");
         if (progress.TotalBytes > 0)
             parts.Add($"{FormatBytes(progress.CurrentBytes)}/{FormatBytes(progress.TotalBytes)}");
+        else if (progress.CurrentBytes > 0)
+            parts.Add($"{FormatBytes(progress.CurrentBytes)} written");
         return parts.Count > 0 ? " (" + string.Join(", ", parts) + ")" : string.Empty;
     }
 
